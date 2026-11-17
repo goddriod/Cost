@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Activity & Cost Manager</title>
+<style>
+:root{--bar:#1f3a5f;--bart:#fff;--on:#fff;--mut:#b9c7da;--bg:#fff;--txt:#1b2430;box-sizing:border-box}
+@media (prefers-color-scheme:dark){:root{--bar:#0e2340;--bg:#12171e;--txt:#e4e9f0}}
+*{box-sizing:border-box}html,body{height:100%;margin:0}
+body{background:var(--bar);color:var(--bart);font:13px/1.35 "Segoe UI",Tahoma,Arial,sans-serif;display:flex;flex-direction:column;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+nav{display:flex;align-items:center;gap:6px;padding:6px 8px;overflow-x:auto;flex:none}
+nav b{font-size:13px;margin-right:6px;white-space:nowrap}
+.tab{font:inherit;color:var(--mut);background:transparent;border:1px solid rgba(255,255,255,.28);border-radius:4px;padding:4px 12px;cursor:pointer;white-space:nowrap}
+.tab small{margin-left:5px;font-size:10px;opacity:.8;text-transform:uppercase}
+.tab[aria-selected="true"]{background:var(--on);color:#1f3a5f;font-weight:600;border-color:var(--on)}
+.tab:focus-visible,a:focus-visible{outline:2px solid #7db4ff;outline-offset:2px}
+nav a{margin-left:auto;color:var(--mut);white-space:nowrap;text-decoration:none;padding:4px 6px}
+main{flex:1;position:relative;background:var(--bg);min-height:0}
+iframe{position:absolute;inset:0;width:100%;height:100%;border:0;background:var(--bg)}
+#msg{background:var(--bg);position:absolute;inset:0;display:none;align-items:center;justify-content:center;text-align:center;padding:24px;color:var(--txt)}
+</style></head><body>
+<nav id="tabs" role="tablist" aria-label="Choose version"><b>Cost Manager</b></nav>
+<main><iframe id="app" title="Selected version"></iframe><div id="msg"></div></main>
+<script>
+// Add a line here for each new release (V4, V5 ...) and create a matching folder with its index.html.
+const VERSIONS=[
+ {id:'V1',path:'V1/index.html'},
+ {id:'V2',path:'V2/index.html'},
+ {id:'V3',path:'V3/index.html'},
+ {id:'V4',path:'V4/index.html'},
+ {id:'V5',path:'V5/index.html'},
+ {id:'V6',path:'V6/index.html'},
+ {id:'V7',path:'V7/index.html'},
+ {id:'V8',path:'V8/index.html',latest:true}
+];
+const $=s=>document.querySelector(s),KEY='p6cm-last-version';
+const nav=$('#tabs'),fr=$('#app'),msg=$('#msg');
+const latest=VERSIONS.find(v=>v.latest)||VERSIONS[VERSIONS.length-1];
+VERSIONS.forEach(v=>{const b=document.createElement('button');b.className='tab';b.role='tab';b.dataset.id=v.id;
+ b.innerHTML=v.id+(v===latest?'<small>latest</small>':'');b.onclick=()=>pick(v.id);nav.appendChild(b)});
+const full=document.createElement('a');full.target='_blank';full.rel='noopener';full.textContent='Full screen ↗';nav.appendChild(full);
+const seg=p=>p.split('/').map(encodeURIComponent).join('/');
+const looksHtml=t=>/<!doctype html|<html/i.test(t.slice(0,2000));
+async function getText(path){const r=await fetch(path,{cache:'no-cache'});if(!r.ok)throw 0;const t=await r.text();if(!looksHtml(t))throw 0;return t}
+async function findVersion(v){
+ const dir=v.path.split('/')[0];
+ try{return{text:await getText(v.path)}}catch(e){}
+ // The file is not called index.html: list the folder on GitHub and use whatever HTML file is inside.
+ const names=[];
+ try{const owner=location.hostname.split('.')[0];let repo=location.pathname.split('/')[1];if(!repo||repo.includes('.'))repo=owner+'.github.io';
+  const r=await fetch('https://api.github.com/repos/'+owner+'/'+repo+'/contents/'+encodeURIComponent(dir));
+  if(r.ok)(await r.json()).forEach(f=>{if(f.type==='file')names.push(f.name)})}catch(e){}
+ const rank=n=>n==='index.html'?0:/\.html?$/i.test(n)?1:2;
+ names.sort((x,y)=>rank(x)-rank(y));
+ for(const n of names){try{return{text:await getText(dir+'/'+seg(n))}}catch(e){}}
+ return{error:names}}
+let blobUrl,current;
+async function pick(id){
+ const v=VERSIONS.find(x=>x.id===id)||latest;current=v.id;
+ nav.querySelectorAll('.tab').forEach(t=>t.setAttribute('aria-selected',t.dataset.id===v.id));
+ try{localStorage.setItem(KEY,v.id)}catch(e){}
+ try{history.replaceState(null,'','#'+v.id)}catch(e){}
+ msg.style.display='flex';msg.textContent='Loading '+v.id+'…';
+ const res=await findVersion(v);
+ if(current!==v.id)return;
+ if(res.error){msg.textContent=v.id+' could not be loaded. '+(res.error.length?'Files found in the '+v.id+' folder: '+res.error.join(', ')+'. None of them look like the app page.':'The '+v.id+' folder is empty or missing.');full.removeAttribute('href');return}
+ msg.style.display='none';fr.srcdoc=res.text;
+ if(blobUrl)URL.revokeObjectURL(blobUrl);
+ blobUrl=URL.createObjectURL(new Blob([res.text],{type:'text/html'}));full.href=blobUrl}
+let start=location.hash.slice(1);
+if(!VERSIONS.some(v=>v.id===start)){try{start=localStorage.getItem(KEY)}catch(e){}}
+pick(VERSIONS.some(v=>v.id===start)?start:latest.id);
+addEventListener('hashchange',()=>{const h=location.hash.slice(1);if(VERSIONS.some(v=>v.id===h))pick(h)});
+</script></body></html>
