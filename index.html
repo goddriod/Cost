@@ -48,9 +48,11 @@ const full=document.createElement('a');full.target='_blank';full.rel='noopener';
 const seg=p=>p.split('/').map(encodeURIComponent).join('/');
 const looksHtml=t=>/<!doctype html|<html/i.test(t.slice(0,2000));
 async function getText(path){const r=await fetch(path,{cache:'no-cache'});if(!r.ok)throw 0;const t=await r.text();if(!looksHtml(t))throw 0;return t}
+const PK='p6cm-paths';let paths={};try{paths=JSON.parse(localStorage.getItem(PK)||'{}')}catch(e){}
+const savePath=(id,p)=>{paths[id]=p;try{localStorage.setItem(PK,JSON.stringify(paths))}catch(e){}};
 async function findVersion(v){
  const dir=v.path.split('/')[0];
- try{return{text:await getText(v.path)}}catch(e){}
+ for(const p of [paths[v.id],v.path]){if(!p)continue;try{const text=await getText(p);savePath(v.id,p);return{text}}catch(e){}}
  // The file is not called index.html: list the folder on GitHub and use whatever HTML file is inside.
  const names=[];
  try{const owner=location.hostname.split('.')[0];let repo=location.pathname.split('/')[1];if(!repo||repo.includes('.'))repo=owner+'.github.io';
@@ -58,7 +60,7 @@ async function findVersion(v){
   if(r.ok)(await r.json()).forEach(f=>{if(f.type==='file')names.push(f.name)})}catch(e){}
  const rank=n=>n==='index.html'?0:/\.html?$/i.test(n)?1:2;
  names.sort((x,y)=>rank(x)-rank(y));
- for(const n of names){try{return{text:await getText(dir+'/'+seg(n))}}catch(e){}}
+ for(const n of names){try{const pp=dir+'/'+seg(n),text=await getText(pp);savePath(v.id,pp);return{text}}catch(e){}}
  return{error:names}}
 let blobUrl,current;
 async function pick(id){
@@ -69,7 +71,7 @@ async function pick(id){
  msg.style.display='flex';msg.textContent='Loading '+v.id+'…';
  const res=await findVersion(v);
  if(current!==v.id)return;
- if(res.error){msg.textContent=v.id+' could not be loaded. '+(res.error.length?'Files found in the '+v.id+' folder: '+res.error.join(', ')+'. None of them look like the app page.':'The '+v.id+' folder is empty or missing.');full.removeAttribute('href');return}
+ if(res.error){msg.textContent=!navigator.onLine?v.id+' is not saved on this device yet. Open it once while online and it will then work offline.':v.id+' could not be loaded. '+(res.error.length?'Files found in the '+v.id+' folder: '+res.error.join(', ')+'. None of them look like the app page.':'The '+v.id+' folder is empty or missing.');full.removeAttribute('href');return}
  msg.style.display='none';fr.srcdoc=res.text;
  if(blobUrl)URL.revokeObjectURL(blobUrl);
  blobUrl=URL.createObjectURL(new Blob([res.text],{type:'text/html'}));full.href=blobUrl}
@@ -77,4 +79,7 @@ let start=location.hash.slice(1);
 if(!VERSIONS.some(v=>v.id===start)){try{start=localStorage.getItem(KEY)}catch(e){}}
 pick(VERSIONS.some(v=>v.id===start)?start:latest.id);
 addEventListener('hashchange',()=>{const h=location.hash.slice(1);if(VERSIONS.some(v=>v.id===h))pick(h)});
+if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').then(()=>navigator.serviceWorker.ready).then(async()=>{
+ try{const c=await caches.open('p6cm-v1');await c.add(location.href.split('#')[0])}catch(e){}
+ if(navigator.onLine)for(const v of VERSIONS){try{await findVersion(v)}catch(e){}}}).catch(()=>{})}
 </script></body></html>
