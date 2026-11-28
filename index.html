@@ -40,7 +40,8 @@ const VERSIONS=[
  {id:'V9',path:'V9/index.html'},
  {id:'V10',path:'V10/index.html'},
  {id:'V11',path:'V11/index.html'},
- {id:'V12',path:'V12/index.html',latest:true}
+ {id:'V12',path:'V12/index.html'},
+ {id:'V13',path:'V13/index.html',latest:true}
 ];
 const $=s=>document.querySelector(s),KEY='p6cm-last-version';
 const nav=$('#tabs'),fr=$('#app'),msg=$('#msg');
@@ -83,6 +84,6 @@ if(!VERSIONS.some(v=>v.id===start)){try{start=localStorage.getItem(KEY)}catch(e)
 pick(VERSIONS.some(v=>v.id===start)?start:latest.id);
 addEventListener('hashchange',()=>{const h=location.hash.slice(1);if(VERSIONS.some(v=>v.id===h))pick(h)});
 if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').then(()=>navigator.serviceWorker.ready).then(async()=>{
- try{const c=await caches.open('p6cm-v1');await c.add(location.href.split('#')[0])}catch(e){}
+ try{const c=await caches.open('p6cm-v2');await c.add(location.href.split('#')[0])}catch(e){}
  if(navigator.onLine)for(const v of VERSIONS){try{await findVersion(v)}catch(e){}}}).catch(()=>{})}
 </script></body></html>
